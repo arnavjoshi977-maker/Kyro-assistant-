@@ -1,23 +1,567 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+package com.example.voiceassistant
 
-    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
-    <uses-permission android:name="android.permission.CALL_PHONE"/>
+import android.animation.Animator
+import android.animation.AnimatorListenerAdapter
+import android.animation.ValueAnimator
+import android.app.Activity
+import android.graphics.*
+import android.graphics.drawable.GradientDrawable
+import android.os.Bundle
+import android.view.*
+import android.view.animation.AccelerateDecelerateInterpolator
+import android.widget.*
+import kotlin.math.sin
 
-    <application
-        android:theme="@style/AppTheme"
-        android:label="Voice Assistant">
+class MainActivity : Activity() {
 
-        <activity
-            android:name=".MainActivity"
-            android:exported="true">
+    private lateinit var orb: GaniOrbView
+    private lateinit var statusText: TextView
+    private lateinit var responseText: TextView
 
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN"/>
-                <category android:name="android.intent.category.LAUNCHER"/>
-            </intent-filter>
+    private var animation: ValueAnimator? = null
 
-        </activity>
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
 
-    </application>
+        window.statusBarColor = Color.rgb(5, 8, 18)
+        window.navigationBarColor = Color.rgb(5, 8, 18)
 
-</manifest>
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(32, 50, 32, 30)
+            setBackgroundColor(Color.rgb(5, 8, 18))
+        }
+
+        // GANI BHAI title
+        val title = TextView(this).apply {
+            text = "GANI BHAI"
+            textSize = 30f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            typeface = Typeface.create("sans-serif", Typeface.BOLD)
+        }
+
+        root.addView(
+            title,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        )
+
+        // Personal greeting
+        val greeting = TextView(this).apply {
+            text = "Namaste! I'm GANI BHAI"
+            textSize = 18f
+            setTextColor(Color.LTGRAY)
+            gravity = Gravity.CENTER
+            setPadding(0, 8, 0, 4)
+        }
+
+        root.addView(greeting)
+
+        val subtitle = TextView(this).apply {
+            text = "Your personal AI voice assistant"
+            textSize = 14f
+            setTextColor(Color.GRAY)
+            gravity = Gravity.CENTER
+        }
+
+        root.addView(subtitle)
+
+        // Space
+        root.addView(
+            Space(this),
+            LinearLayout.LayoutParams(
+                1,
+                35
+            )
+        )
+
+        // Main AI orb
+        orb = GaniOrbView(this)
+
+        root.addView(
+            orb,
+            LinearLayout.LayoutParams(
+                330,
+                330
+            ).apply {
+                gravity = Gravity.CENTER
+            }
+        )
+
+        // Status
+        statusText = TextView(this).apply {
+            text = "READY"
+            textSize = 15f
+            setTextColor(Color.CYAN)
+            gravity = Gravity.CENTER
+            typeface = Typeface.create("sans-serif", Typeface.BOLD)
+            setPadding(0, 18, 0, 8)
+        }
+
+        root.addView(
+            statusText,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        )
+
+        // Conversation response
+        responseText = TextView(this).apply {
+            text = "Say \"Hey Gani Bhai\" when you're ready."
+            textSize = 16f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            setPadding(25, 15, 25, 15)
+        }
+
+        root.addView(
+            responseText,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        )
+
+        // Talk button
+        val talkButton = Button(this).apply {
+            text = "🎙  TALK TO GANI BHAI"
+            textSize = 15f
+            setTextColor(Color.WHITE)
+            background = roundedBackground()
+            setOnClickListener {
+                startListeningAnimation()
+            }
+        }
+
+        root.addView(
+            talkButton,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                60
+            ).apply {
+                topMargin = 25
+            }
+        )
+
+        setContentView(root)
+
+        // Start gentle idle animation.
+        startIdleAnimation()
+    }
+
+    private fun roundedBackground(): GradientDrawable {
+        return GradientDrawable().apply {
+            setColor(Color.rgb(20, 55, 80))
+            cornerRadius = 40f
+        }
+    }
+
+    private fun startIdleAnimation() {
+        animation?.cancel()
+
+        statusText.text = "READY"
+        responseText.text = "Say \"Hey Gani Bhai\" when you're ready."
+
+        orb.mode = GaniOrbView.Mode.IDLE
+
+        animation = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 2200
+            repeatCount = ValueAnimator.INFINITE
+            repeatMode = ValueAnimator.REVERSE
+            interpolator = AccelerateDecelerateInterpolator()
+
+            addUpdateListener {
+                orb.intensity = it.animatedValue as Float
+                orb.invalidate()
+            }
+
+            start()
+        }
+    }
+
+    private fun startListeningAnimation() {
+        animation?.cancel()
+
+        statusText.text = "LISTENING..."
+        responseText.text = "I'm listening. Tell me what you need."
+
+        orb.mode = GaniOrbView.Mode.LISTENING
+
+        animation = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 900
+            repeatCount = ValueAnimator.INFINITE
+            repeatMode = ValueAnimator.REVERSE
+
+            addUpdateListener {
+                orb.intensity = it.animatedValue as Float
+                orb.invalidate()
+            }
+
+            start()
+        }
+
+        // Demo transition for Step 1.
+        // Real microphone input will replace this in Step 2.
+        orb.postDelayed({
+            startThinkingAnimation()
+        }, 3000)
+    }
+
+    private fun startThinkingAnimation() {
+        animation?.cancel()
+
+        statusText.text = "THINKING..."
+        responseText.text = "Let me think about that..."
+
+        orb.mode = GaniOrbView.Mode.THINKING
+
+        animation = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 700
+            repeatCount = ValueAnimator.INFINITE
+            repeatMode = ValueAnimator.RESTART
+
+            addUpdateListener {
+                orb.intensity = it.animatedValue as Float
+                orb.invalidate()
+            }
+
+            start()
+        }
+
+        // Demo transition for Step 1.
+        // Real AI response will replace this later.
+        orb.postDelayed({
+            startSpeakingAnimation()
+        }, 2500)
+    }
+
+    private fun startSpeakingAnimation() {
+        animation?.cancel()
+
+        statusText.text = "GANI BHAI IS SPEAKING"
+        responseText.text =
+            "I'm here with you. Ask me anything, and I'll help you."
+
+        orb.mode = GaniOrbView.Mode.SPEAKING
+
+        animation = ValueAnimator.ofFloat(0f, 1f).apply {
+            duration = 500
+            repeatCount = ValueAnimator.INFINITE
+            repeatMode = ValueAnimator.REVERSE
+
+            addUpdateListener {
+                orb.intensity = it.animatedValue as Float
+                orb.invalidate()
+            }
+
+            start()
+        }
+
+        // Return to idle.
+        orb.postDelayed({
+            startIdleAnimation()
+        }, 4500)
+    }
+
+    override fun onDestroy() {
+        animation?.cancel()
+        super.onDestroy()
+    }
+}
+
+
+/*
+ * GANI BHAI AI ORB
+ *
+ * This is the visual foundation for the future voice engine.
+ *
+ * IDLE      = breathing
+ * LISTENING = audio-style waves
+ * THINKING  = rotating neural rings
+ * SPEAKING  = voice pulse
+ */
+class GaniOrbView(context: android.content.Context) :
+    View(context) {
+
+    enum class Mode {
+        IDLE,
+        LISTENING,
+        THINKING,
+        SPEAKING
+    }
+
+    var mode = Mode.IDLE
+    var intensity = 0f
+
+    private val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+    private var rotation = 0f
+
+    init {
+        paint.isDither = true
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+
+        val cx = width / 2f
+        val cy = height / 2f
+        val baseRadius = width * 0.25f
+
+        rotation += 1.5f
+
+        // Outer glow rings
+        drawGlow(canvas, cx, cy, baseRadius)
+
+        when (mode) {
+            Mode.IDLE -> drawIdle(canvas, cx, cy, baseRadius)
+            Mode.LISTENING -> drawListening(canvas, cx, cy, baseRadius)
+            Mode.THINKING -> drawThinking(canvas, cx, cy, baseRadius)
+            Mode.SPEAKING -> drawSpeaking(canvas, cx, cy, baseRadius)
+        }
+
+        postInvalidateDelayed(16)
+    }
+
+    private fun drawGlow(
+        canvas: Canvas,
+        cx: Float,
+        cy: Float,
+        radius: Float
+    ) {
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = 3f
+
+        val pulse = 1f + intensity * 0.12f
+
+        paint.color = Color.argb(40, 0, 220, 255)
+        canvas.drawCircle(cx, cy, radius * 1.8f * pulse, paint)
+
+        paint.color = Color.argb(70, 0, 180, 255)
+        canvas.drawCircle(cx, cy, radius * 1.55f * pulse, paint)
+
+        paint.color = Color.argb(110, 0, 220, 255)
+        canvas.drawCircle(cx, cy, radius * 1.35f * pulse, paint)
+    }
+
+    private fun drawIdle(
+        canvas: Canvas,
+        cx: Float,
+        cy: Float,
+        radius: Float
+    ) {
+        val breathing = 1f + intensity * 0.08f
+
+        paint.style = Paint.Style.FILL
+
+        val shader = RadialGradient(
+            cx,
+            cy,
+            radius * 1.5f,
+            intArrayOf(
+                Color.WHITE,
+                Color.CYAN,
+                Color.rgb(30, 90, 180),
+                Color.rgb(5, 15, 45)
+            ),
+            floatArrayOf(0f, 0.18f, 0.55f, 1f),
+            Shader.TileMode.CLAMP
+        )
+
+        paint.shader = shader
+
+        canvas.drawCircle(
+            cx,
+            cy,
+            radius * breathing,
+            paint
+        )
+
+        paint.shader = null
+    }
+
+    private fun drawListening(
+        canvas: Canvas,
+        cx: Float,
+        cy: Float,
+        radius: Float
+    ) {
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = 5f
+
+        // Central orb
+        paint.color = Color.CYAN
+
+        canvas.drawCircle(
+            cx,
+            cy,
+            radius * (0.85f + intensity * 0.12f),
+            paint
+        )
+
+        // Voice waveform around orb
+        for (i in 0 until 48) {
+            val angle = (i / 48f) * Math.PI * 2
+
+            val wave =
+                sin(angle * 5 + rotation * 0.08) *
+                        (12f + intensity * 35f)
+
+            val inner = radius * 1.15f
+            val outer = inner + wave + 12f
+
+            val x1 =
+                cx + kotlin.math.cos(angle).toFloat() * inner
+
+            val y1 =
+                cy + kotlin.math.sin(angle).toFloat() * inner
+
+            val x2 =
+                cx + kotlin.math.cos(angle).toFloat() * outer
+
+            val y2 =
+                cy + kotlin.math.sin(angle).toFloat() * outer
+
+            paint.color = Color.argb(
+                150,
+                0,
+                220,
+                255
+            )
+
+            canvas.drawLine(x1, y1, x2, y2, paint)
+        }
+    }
+
+    private fun drawThinking(
+        canvas: Canvas,
+        cx: Float,
+        cy: Float,
+        radius: Float
+    ) {
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = 5f
+
+        canvas.save()
+
+        canvas.rotate(rotation, cx, cy)
+
+        paint.color = Color.MAGENTA
+
+        canvas.drawArc(
+            cx - radius * 1.25f,
+            cy - radius * 1.25f,
+            cx + radius * 1.25f,
+            cy + radius * 1.25f,
+            0f,
+            110f,
+            false,
+            paint
+        )
+
+        paint.color = Color.CYAN
+
+        canvas.drawArc(
+            cx - radius * 1.4f,
+            cy - radius * 1.4f,
+            cx + radius * 1.4f,
+            cy + radius * 1.4f,
+            150f,
+            120f,
+            false,
+            paint
+        )
+
+        canvas.restore()
+
+        paint.style = Paint.Style.FILL
+        paint.color = Color.rgb(30, 120, 220)
+
+        canvas.drawCircle(
+            cx,
+            cy,
+            radius * (0.85f + intensity * 0.1f),
+            paint
+        )
+    }
+
+    private fun drawSpeaking(
+        canvas: Canvas,
+        cx: Float,
+        cy: Float,
+        radius: Float
+    ) {
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = 6f
+
+        val pulse =
+            radius * (1f + intensity * 0.25f)
+
+        paint.color = Color.CYAN
+
+        canvas.drawCircle(
+            cx,
+            cy,
+            pulse,
+            paint
+        )
+
+        paint.color = Color.WHITE
+
+        canvas.drawCircle(
+            cx,
+            cy,
+            radius * 0.75f,
+            paint
+        )
+
+        // Speaking waveform
+        for (i in 0 until 32) {
+
+            val angle =
+                (i / 32f) * Math.PI * 2
+
+            val wave =
+                kotlin.math.abs(
+                    sin(
+                        angle * 8 +
+                                rotation * 0.12
+                    )
+                ) * intensity * 55f
+
+            val inner = radius * 1.1f
+            val outer = inner + wave + 8f
+
+            val x1 =
+                cx + kotlin.math.cos(angle).toFloat() * inner
+
+            val y1 =
+                cy + kotlin.math.sin(angle).toFloat() * inner
+
+            val x2 =
+                cx + kotlin.math.cos(angle).toFloat() * outer
+
+            val y2 =
+                cy + kotlin.math.sin(angle).toFloat() * outer
+
+            paint.color = Color.argb(
+                180,
+                0,
+                230,
+                255
+            )
+
+            canvas.drawLine(
+                x1,
+                y1,
+                x2,
+                y2,
+                paint
+            )
+        }
+    }
+}
